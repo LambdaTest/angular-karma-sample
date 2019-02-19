@@ -30,7 +30,7 @@
     
     ```
 3. Setup
-    * Clone [angular-karma-sample](https://automation.lambdatest.com/) from GitHub.
+    * Clone [angular-karma-sample](https://github.com/LambdaTest/angular-karma-sample) from GitHub.
     * Navigate to the cloned directory
     * Install project dependencies
     ```
