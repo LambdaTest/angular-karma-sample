@@ -33,7 +33,7 @@ Please refer this [url](https://www.lambdatest.com/support/docs/display/TD/Selen
 > OS specific instructions to download and setup tunnel binary can be found at the following links.
 >    - [Windows](https://www.lambdatest.com/support/docs/display/TD/Local+Testing+For+Windows)
 >    - [Mac](https://www.lambdatest.com/support/docs/display/TD/Local+Testing+For+MacOS)
->    - [Linux](https://www.lambdatest.com/support/docs/display/TD/Local+Testing+For+Linux)```
+>    - [Linux](https://www.lambdatest.com/support/docs/display/TD/Local+Testing+For+Linux)
 
 ### Running Tests
 
