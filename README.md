@@ -15,19 +15,31 @@
     $ npm install -g @angular/cli
     ```
 2. lambdatest Credentials
-    * In the terminal export your lambdatest Credentials as environmental variables:
+    * Set LambdaTest username and access key in environment variables. It can be obtained from [LambdaTest dashboard](https://automation.lambdatest.com/)    
+    example:
+    - For linux/mac
     ```
-    $ export LT_USERNAME=<your lambdatest username>
-    $ export LT_ACCESS_KEY=<your lambdatest access_key>
+    export LT_USERNAME="YOUR_USERNAME"
+    export LT_ACCESS_KEY="YOUR ACCESS KEY"
+    
     ```
-3. Project Dependencies
-    * Install Node modules
+    - For Windows
+    ```
+    set LT_USERNAME="YOUR_USERNAME"
+    set LT_ACCESS_KEY="YOUR ACCESS KEY"
+    
+    ```
+3. Setup
+    * Clone [angular-karma-sample](https://automation.lambdatest.com/) from GitHub.
+    * Navigate to the cloned directory
+    * Install project dependencies
     ```
     $ npm install
     ```
 
 ##### Setting test through jenkins
 Please refer this [url](https://www.lambdatest.com/support/docs/display/TD/Selenium+with+Jenkins)
+
 #####  Routing traffic through your local machine
 - Set tunnel value to `true` in test capabilities
 > OS specific instructions to download and setup tunnel binary can be found at the following links.
@@ -38,6 +50,8 @@ Please refer this [url](https://www.lambdatest.com/support/docs/display/TD/Selen
 ### Running Tests
 
 * Tests in Parallel:
+    - Navigate to angular-karma-sample
+    - Run following command
 
     ```
     $ ng test
