@@ -59,6 +59,33 @@ Please refer this [url](https://www.lambdatest.com/support/docs/display/TD/Selen
 
 You will see the test result in the [lambdatest Dashboard](https://automation.lambdatest.com)
 
+### Browser Launcher Configuration
+> This configuration can be found in `src/karma.conf.js`
+
+```javascript
+    customLaunchers: {
+        chrome: {
+             base: 'WebDriver',
+             config: webdriverConfig,
+             browserName: 'chrome',
+             platform: 'windows 10',
+             version: '71.0',
+             name: 'Karma With Heartbeat',
+             tunnel: true, // In case karma is running on local machine
+             video: true, // capture video for your test
+             visual: true, // capture screenshots on each step
+             network: true, // capture network logs for your test
+             console: true, // capture browser console logs
+             user: process.env.LT_USERNAME,
+             accessKey: process.env.LT_ACCESS_KEY,
+             pseudoActivityInterval: 5000 // 5000 ms heartbeat to avoid timeouts
+        }
+    }
+```
+### pseudoActivityInterval
+Interval in ms to do some activity to avoid killing session by timeout.
+If not set or set to `0` - no activity will be performed.
+
 ### Resources
 
 ##### [SeleniumHQ Documentation](http://www.seleniumhq.org/docs/)

@@ -30,11 +30,13 @@ module.exports = function(config) {
             fixWebpackSourcePaths: true
         },
         captureTimeout: 600000,
-        browserDisconnectTimeout: 60000,
+        retryLimit: 1,
+        browserDisconnectTimeout: 90000,
         browserDisconnectTolerance: 1,
-        browserNoActivityTimeout: 60000,
+        browserNoActivityTimeout: 90000,
         reporters: ['progress', 'kjhtml'],
         colors: true,
+        concurrency: 1,
         logLevel: config.LOG_DEBUG,
         browsers: ['chrome'],
         customLaunchers: {
@@ -44,17 +46,18 @@ module.exports = function(config) {
                 browserName: 'chrome',
                 platform: 'windows 10',
                 version: '71.0',
-                name: 'Karma',
+                name: 'Karma With Heartbeat',
                 tunnel: true, // In case karma is running on local machine
                 video: true, // capture video for your test
                 visual: true, // capture screenshots on each step
                 network: true, // capture network logs for your test
                 console: true, // capture browser console logs
                 user: process.env.LT_USERNAME,
-                accessKey: process.env.LT_ACCESS_KEY
+                accessKey: process.env.LT_ACCESS_KEY,
+                pseudoActivityInterval: 5000 // 5000 ms heartbeat
             }
         },
         singleRun: true,
-        autoWatch: false
+        autoWatch: true
     });
 };
