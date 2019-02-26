@@ -54,7 +54,7 @@ module.exports = function(config) {
                 console: true, // capture browser console logs
                 user: process.env.LT_USERNAME,
                 accessKey: process.env.LT_ACCESS_KEY,
-                pseudoActivityInterval: 5000 // 5000 ms heartbeat
+                pseudoActivityInterval: 15000 // 5000 ms heartbeat
             }
         },
         singleRun: true,
