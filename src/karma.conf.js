@@ -19,7 +19,8 @@ module.exports = function(config) {
             'karma-webdriver-launcher',
             'karma-jasmine-html-reporter',
             'karma-coverage-istanbul-reporter',
-            require('@angular-devkit/build-angular/plugins/karma')
+            require('@angular-devkit/build-angular/plugins/karma'),
+            'karma-mocha-reporter'
         ],
         client: {
             clearContext: false
@@ -34,7 +35,8 @@ module.exports = function(config) {
         browserDisconnectTimeout: 90000,
         browserDisconnectTolerance: 1,
         browserNoActivityTimeout: 90000,
-        reporters: ['progress', 'kjhtml'],
+        // reporters: ['progress', 'kjhtml'],
+        reporters: ['mocha'],
         colors: true,
         concurrency: 1,
         logLevel: config.LOG_DEBUG,
@@ -48,6 +50,7 @@ module.exports = function(config) {
                 version: '71.0',
                 name: 'Karma With Heartbeat',
                 tunnel: true, // In case karma is running on local machine
+                tunnelName:'jasmine', // In case running multiple tunnel
                 video: true, // capture video for your test
                 visual: true, // capture screenshots on each step
                 network: true, // capture network logs for your test
