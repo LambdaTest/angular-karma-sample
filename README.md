@@ -14,7 +14,7 @@
     ```
     $ npm install -g @angular/cli
     ```
-2. lambdatest Credentials
+2. Lambdatest Credentials
     * Set LambdaTest username and access key in environment variables. It can be obtained from [LambdaTest dashboard](https://automation.lambdatest.com/)    
     example:
     - For linux/mac
