@@ -21,13 +21,11 @@
     ```
     export LT_USERNAME="YOUR_USERNAME"
     export LT_ACCESS_KEY="YOUR ACCESS KEY"
-    
     ```
     - For Windows
     ```
     set LT_USERNAME="YOUR_USERNAME"
     set LT_ACCESS_KEY="YOUR ACCESS KEY"
-    
     ```
 3. Setup
     * Clone [angular-karma-sample](https://github.com/LambdaTest/angular-karma-sample) from GitHub.
