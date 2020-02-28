@@ -1,6 +1,6 @@
 ![LambdaTest Logo](https://www.lambdatest.com/static/images/logo.svg)
 ---
-# angular-karma-sample
+# angular karma sample
 
 ### Environment Setup
 
