@@ -52,9 +52,9 @@ module.exports = function(config) {
                 tunnel: true, // In case karma is running on local machine
                // tunnelName:'jasmine', // In case running multiple tunnel
                 video: true, // capture video for your test
-                visual: true, // capture screenshots on each step
-                network: true, // capture network logs for your test
-                console: true, // capture browser console logs
+                visual: false, // capture screenshots on each step
+                network: false, // capture network logs for your test
+                console: false, // capture browser console logs
                 user: process.env.LT_USERNAME,
                 accessKey: process.env.LT_ACCESS_KEY,
                 pseudoActivityInterval: 15000 // 5000 ms heartbeat
