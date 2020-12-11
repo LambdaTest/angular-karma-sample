@@ -132,5 +132,8 @@
       }
     }
   },
-  "defaultProject": "karma-sample"
+  "defaultProject": "karma-sample",
+  "cli": {
+    "analytics": "a9ac2e60-fe04-4b79-8786-c1bde1284268"
+  }
 }
