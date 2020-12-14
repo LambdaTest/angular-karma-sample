@@ -46,8 +46,8 @@ module.exports = function(config) {
                 base: 'WebDriver',
                 config: webdriverConfig,
                 browserName: 'chrome',
-                platform: 'windows 10',
-                version: '71.0',
+                platform: 'Windows 10',
+                version: 'latest',
                 name: 'Karma With Heartbeat',
                 tunnel: true, // In case karma is running on local machine
                // tunnelName:'jasmine', // In case running multiple tunnel
