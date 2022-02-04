@@ -1,66 +1,90 @@
-![LambdaTest Logo](https://www.lambdatest.com/static/images/logo.svg)
----
-# angular karma sample
+# Jest Selenium Tutorial
 
-### Environment Setup
+![LAMBDATEST Logo](https://opengraph.githubassets.com/735233b65d346678698aebec548a3af423f731f66d30108eb252a796dbd506ab/LambdaTest/angular-karma-sample)
 
-1. Global Dependencies
-    * Install [Node.js](https://nodejs.org/en/)
-    * Or Install Node.js with [Homebrew](http://brew.sh/)
-    ```
-    $ brew install node
-    ```
-    * Install [Angular CLI](https://cli.angular.io/)
-    ```
-    $ npm install -g @angular/cli
-    ```
-2. Lambdatest Credentials
-    * Set LambdaTest username and access key in environment variables. It can be obtained from [LambdaTest dashboard](https://automation.lambdatest.com/)    
-    example:
-    - For linux/mac
-    ```
-    export LT_USERNAME="YOUR_USERNAME"
-    export LT_ACCESS_KEY="YOUR ACCESS KEY"
-    ```
-    - For Windows
-    ```
-    set LT_USERNAME="YOUR_USERNAME"
-    set LT_ACCESS_KEY="YOUR ACCESS KEY"
-    ```
-3. Setup
-    * Clone [angular-karma-sample](https://github.com/LambdaTest/angular-karma-sample) from GitHub.
-    * Navigate to the cloned directory
-    * Install project dependencies
-    ```
-    $ npm install
-    ```
+## Prerequisites
 
-##### Setting test through jenkins
+1. Install [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm)
+
+```
+sudo apt install npm
+```
+
+2. Install [Node.js](https://nodejs.org/en/)
+
+```
+sudo apt install nodejs
+```
+
+## Steps to Run your First Test
+
+Step 1. Clone the Angular-Krma-Sample Repository.
+
+```
+git clone https://github.com/LambdaTest/angular-karma-sample
+```
+
+Step 2. Inside Angular-Krma-Sample folder, export the Lambda-test Credentials. You can get these from your automation dashboard.
+
+<p align="center">
+   <b>For Linux/macOS:</b>
+
+```
+export LT_USERNAME="YOUR_USERNAME"
+export LT_ACCESS_KEY="YOUR ACCESS KEY"
+```
+
+<p align="center">
+   <b>For Windows:</b>
+
+```
+set LT_USERNAME="YOUR_USERNAME"
+set LT_ACCESS_KEY="YOUR ACCESS KEY"
+```
+
+Step 3. Inside Angular-Karma-Sample folder install necessary packages.
+
+```
+cd angular-karma-sample
+npm i
+```
+### Setting test through jenkins
 Please refer this [url](https://www.lambdatest.com/support/docs/display/TD/Selenium+with+Jenkins)
 
-#####  Routing traffic through your local machine
+###  Routing traffic through your local machine
 - Set tunnel value to `true` in test capabilities
 > OS specific instructions to download and setup tunnel binary can be found at the following links.
 >    - [Windows](https://www.lambdatest.com/support/docs/display/TD/Local+Testing+For+Windows)
 >    - [Mac](https://www.lambdatest.com/support/docs/display/TD/Local+Testing+For+MacOS)
 >    - [Linux](https://www.lambdatest.com/support/docs/display/TD/Local+Testing+For+Linux)
 
+
+
+### Running Tests in Parallel
+Navigate to angular-karma-sample and run following command
+```
+ ng test
+```
+    
 ### Important Note:
 Some Safari & IE browsers, doesn't support automatic resolution of the URL string "localhost". Therefore if you test on URLs like "http://localhost/" or "http://localhost:8080" etc, you would get an error in these browsers. A possible solution is to use "localhost.lambdatest.com" or replace the string "localhost" with machine IP address. For example if you wanted to test "http://localhost/dashboard" or, and your machine IP is 192.168.2.6 you can instead test on "http://192.168.2.6/dashboard" or "http://localhost.lambdatest.com/dashboard".
 
 
-### Running Tests
+ ###  Routing traffic through your local machine
+ - Set tunnel value to `true` in test capabilities
+ > OS specific instructions to download and setup tunnel binary can be found at the following links.
+ >    - [Windows](https://www.lambdatest.com/support/docs/display/TD/Local+Testing+For+Windows)
+ >    - [Mac](https://www.lambdatest.com/support/docs/display/TD/Local+Testing+For+MacOS)
+ >    - [Linux](https://www.lambdatest.com/support/docs/display/TD/Local+Testing+For+Linux)
 
-* Tests in Parallel:
-    - Navigate to angular-karma-sample
-    - Run following command
+### Run test locally
+Navigate to  the test folder and run the below command:
+```
+npm test local.test.js
+```
 
-    ```
-    $ ng test
-    ```
-
-You will see the test result in the [lambdatest Dashboard](https://automation.lambdatest.com)
-
+ ### Important Note:
+ Some Safari & IE browsers, doesn't support automatic resolution of the URL string "localhost". Therefore if you test on URLs like "http://localhost/" or "http://localhost:8080" etc, you would get an error in these browsers. A possible solution is to use "localhost.lambdatest.com" or replace the string "localhost" with machine IP address. For example if you wanted to test "http://localhost/dashboard" or, and your machine IP is 192.168.2.6 you can instead test on "http://192.168.2.6/dashboard" or "http://localhost.lambdatest.com/dashboard".
 ### Browser Launcher Configuration
 > This configuration can be found in `src/karma.conf.js`
 
@@ -95,4 +119,5 @@ If not set or set to `0` - no activity will be performed.
 ### Resources
 
 ##### [SeleniumHQ Documentation](http://www.seleniumhq.org/docs/)
-##### [Karma Documentation](http://karma-runner.github.io/3.0/intro/how-it-works.html)
+
+
