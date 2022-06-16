@@ -52,7 +52,7 @@ To install node.js with homebrew use the below command.
 
 **2. LambdaTest Authentication Credentials**
 
-Be aware of your LambdaTest authentication credentials i.e. your LambdaTest username, access key and HubURL. You need to set them up as your environment variables. You can retrieve them from your [LambdaTest automation dashboard](https://automation.lambdatest.com/) by clicking on the key icon near the help button.
+Be aware of your LambdaTest authentication credentials i.e. your LambdaTest username, access key and HubURL. You need to set them up as your environment variables. You can retrieve them from your [LambdaTest automation dashboard](https://automation.lambdatest.com/?utm_source=github&utm_medium=repo&utm_campaign=angular-karma-sample) by clicking on the key icon near the help button.
 
 * For Windows user:
 ```bash
@@ -109,7 +109,7 @@ karma start karma.conf.js
 
 `karma start karma.conf.js`
 
-If you wish to use Jenkins, then [follow this documentation](/docs/jenkins-with-lambdatest/).
+If you wish to use Jenkins, then [follow this documentation](/docs/jenkins-with-lambdatest/?utm_source=github&utm_medium=repo&utm_campaign=angular-karma-sample).
 
 ### Parallel Testing
 
@@ -119,7 +119,7 @@ To perform parallel testing, navigate to sample project “**angular-karma-sampl
 
 `$ ng test`
 
-Monitor and analyze your test result ont the [LambdaTest Automation Dashboard](https://automation.lambdatest.com/).
+Monitor and analyze your test result ont the [LambdaTest Automation Dashboard](https://automation.lambdatest.com/?utm_source=github&utm_medium=repo&utm_campaign=angular-karma-sample).
 
 ## Avoid Timeouts With psuedoActivityInterval
 
@@ -139,7 +139,7 @@ customLaunchers: { chrome: {
 
 Check out our latest tutorials on TestNG automation testing 👇
 
-* [Angular Testing With Jasmine And Karma Using Selenium [Tutorial]](https://www.lambdatest.com/blog/angular-testing-with-jasmine-and-karma/)
+* [Angular Testing With Jasmine And Karma Using Selenium [Tutorial]](https://www.lambdatest.com/blog/angular-testing-with-jasmine-and-karma/?utm_source=github&utm_medium=repo&utm_campaign=angular-karma-sample)
 
 ## Documentation & Resources :books:
  
@@ -151,7 +151,7 @@ Visit the following links to learn more about LambdaTest's features, setup and t
 
 ## LambdaTest Community :busts_in_silhouette:
 
-The [LambdaTest Community](https://community.lambdatest.com/) allows people to interact with tech enthusiasts. Connect, ask questions, and learn from tech-savvy people. Discuss best practises in web development, testing, and DevOps with professionals from across the globe 🌎
+The [LambdaTest Community](https://community.lambdatest.com/?utm_source=github&utm_medium=repo&utm_campaign=angular-karma-sample) allows people to interact with tech enthusiasts. Connect, ask questions, and learn from tech-savvy people. Discuss best practises in web development, testing, and DevOps with professionals from across the globe 🌎
 
 ## What's New At LambdaTest ❓
 
@@ -180,5 +180,5 @@ To stay updated with the latest features and product add-ons, visit [Changelog](
       
 ## We are here to help you :headphones:
 
-* Got a query? we are available 24x7 to help. [Contact Us](support@lambdatest.com)
+* Got a query? we are available 24x7 to help. [Contact Us](support@lambdatest.com/?utm_source=github&utm_medium=repo&utm_campaign=angular-karma-sample)
 * For more info, visit - [LambdaTest](https://www.lambdatest.com/?utm_source=github&utm_medium=repo&utm_campaign=angular-karma-sample)
