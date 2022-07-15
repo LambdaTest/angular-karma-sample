@@ -50,7 +50,7 @@ module.exports = function(config) {
                 version: 'latest',
                 name: 'Karma With Heartbeat',
                 tunnel: true, // In case karma is running on local machine
-               // tunnelName:'jasmine', // In case running multiple tunnel
+                tunnelName: process.env.LT_TUNNEL || 'jasmine', // In case running multiple tunnel
                 video: true, // capture video for your test
                 visual: false, // capture screenshots on each step
                 network: false, // capture network logs for your test
