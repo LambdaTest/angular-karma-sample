@@ -50,20 +50,27 @@ To install node.js with homebrew use the below command.
 
 `$ npm install -g @angular/cli`
 
+
 **2. LambdaTest Authentication Credentials**
 
 Be aware of your LambdaTest authentication credentials i.e. your LambdaTest username, access key and HubURL. You need to set them up as your environment variables. You can retrieve them from your [LambdaTest automation dashboard](https://automation.lambdatest.com/?utm_source=github&utm_medium=repo&utm_campaign=angular-karma-sample) by clicking on the key icon near the help button.
 
+```
+Start tunnel with command from the configure tunnel in your dashboard
+this tunnel name will be needed to run the tests
+```
 * For Windows user:
 ```bash
 set LT_USERNAME=”YOUR_USERNAME”
 set LT_ACCESS_KEY=”YOUR ACCESS KEY”
+set LT_TUNNEL=”TUNNEL NAME”
 ```
 
 * For macOS/Linux user:
 ```bash
 export LT_USERNAME=”YOUR_USERNAME”
 export LT_ACCESS_KEY=”YOUR ACCESS KEY”
+export LT_TUNNEL=”TUNNEL NAME”
 ```
 
 ### Setting Up
