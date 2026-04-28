@@ -1,0 +1,221 @@
+name: Build bottles
+
+# Builds platform-specific Homebrew bottles for kane-cli, uploads them to a
+# GitHub Release tagged `kane-cli-<version>`, and patches Formula/kane-cli.rb
+# with a `bottle do` block. Once published, `brew install` downloads the
+# prebuilt bottle on user machines instead of running `npm install` locally —
+# so user toolchain (Xcode/CLT) version becomes irrelevant.
+#
+# Trigger model:
+#   - `workflow_run` after `Update Homebrew Formula` succeeds (the normal
+#     post-release-publish path).
+#   - `workflow_dispatch` for manual backfill of an existing version.
+
+on:
+  workflow_run:
+    workflows: ["Update Homebrew Formula"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Formula version to (re)build bottles for. Leave blank to use whatever's in Formula/kane-cli.rb on main."
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  guard:
+    # workflow_run fires regardless of conclusion — gate on success.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.read.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Resolve version
+        id: read
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION=$(grep '^  version' Formula/kane-cli.rb | awk -F'"' '{print $2}')
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Building bottles for kane-cli ${VERSION}"
+
+  build:
+    needs: guard
+    name: Build (${{ matrix.label }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            label: arm64_sequoia
+          - os: macos-14
+            label: arm64_sonoma
+          - os: ubuntu-latest
+            label: x86_64_linux
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@master
+
+      - name: Tap self into Homebrew
+        run: |
+          TAP_DIR="$(brew --repository)/Library/Taps/lambdatest/homebrew-kane"
+          mkdir -p "$(dirname "$TAP_DIR")"
+          ln -snf "$GITHUB_WORKSPACE" "$TAP_DIR"
+          brew tap | grep lambdatest/kane
+
+      - name: Build bottle
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+          HOMEBREW_NO_INSTALL_FROM_API: "1"
+        run: |
+          VERSION="${{ needs.guard.outputs.version }}"
+          ROOT_URL="https://github.com/LambdaTest/homebrew-kane/releases/download/kane-cli-${VERSION}"
+
+          brew install --build-bottle lambdatest/kane/kane-cli
+          brew bottle \
+            --no-rebuild \
+            --json \
+            --root-url="${ROOT_URL}" \
+            lambdatest/kane/kane-cli
+
+          # `brew bottle` emits filenames with `--` (e.g. kane-cli--0.2.7.arm64_sequoia.bottle.tar.gz);
+          # Homebrew's URL convention is single-dash. Rename so the download URL matches.
+          for f in kane-cli--*.bottle.*; do
+            [ -e "$f" ] || continue
+            mv "$f" "${f/--/-}"
+          done
+
+          ls -la kane-cli-*.bottle.* || true
+
+      - name: Upload bottle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bottle-${{ matrix.label }}
+          path: |
+            kane-cli-*.bottle.tar.gz
+            kane-cli-*.bottle.json
+          if-no-files-found: error
+
+  publish:
+    needs: [guard, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download all bottle artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: bottles
+          merge-multiple: true
+
+      - name: Inventory artifacts
+        run: ls -la bottles/
+
+      - name: Create or update release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ needs.guard.outputs.version }}"
+          TAG="kane-cli-${VERSION}"
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG exists; uploading bottles with --clobber"
+            gh release upload "$TAG" bottles/*.bottle.tar.gz --clobber
+          else
+            gh release create "$TAG" bottles/*.bottle.tar.gz \
+              --title "$TAG" \
+              --notes "Homebrew bottles for kane-cli ${VERSION}"
+          fi
+
+      - name: Compute sha256s and patch formula
+        run: |
+          VERSION="${{ needs.guard.outputs.version }}"
+          python3 - <<'PY'
+          import hashlib, glob, os, re, sys
+
+          version = os.environ.get("VERSION") or ""
+          if not version:
+              sys.exit("VERSION env var missing")
+
+          # Map filename label → (cellar, brew DSL key)
+          # All current bottles are toolchain-free symlinks → any_skip_relocation is correct.
+          labels = ["arm64_sequoia", "arm64_sonoma", "x86_64_linux"]
+          shas = {}
+          for label in labels:
+              matches = glob.glob(f"bottles/kane-cli-{version}.{label}.bottle.tar.gz")
+              if not matches:
+                  print(f"WARN: no bottle found for {label}", file=sys.stderr)
+                  continue
+              with open(matches[0], "rb") as f:
+                  shas[label] = hashlib.sha256(f.read()).hexdigest()
+
+          if not shas:
+              sys.exit("No bottle artifacts found — aborting")
+
+          root_url = f"https://github.com/LambdaTest/homebrew-kane/releases/download/kane-cli-{version}"
+          width = max(len(k) for k in shas) + 1  # for column alignment after the colon
+          lines = [
+              "  bottle do",
+              f'    root_url "{root_url}"',
+          ]
+          for label in labels:
+              if label in shas:
+                  lines.append(
+                      f'    sha256 cellar: :any_skip_relocation, {label}:{" " * (width - len(label))}"{shas[label]}"'
+                  )
+          lines.append("  end")
+          block = "\n".join(lines) + "\n"
+
+          with open("Formula/kane-cli.rb") as f:
+              src = f.read()
+
+          # Drop any existing bottle block.
+          src = re.sub(r"  bottle do\n(?:.*\n)*?  end\n+", "", src)
+
+          # Insert immediately after the version line.
+          src, n = re.subn(
+              r'(  version "[^"]+"\n)\n*',
+              r"\1\n" + block + "\n",
+              src,
+              count=1,
+          )
+          if n != 1:
+              sys.exit("Could not locate version line for bottle block insertion")
+
+          with open("Formula/kane-cli.rb", "w") as f:
+              f.write(src)
+
+          print("Patched formula:")
+          print(src)
+          PY
+        env:
+          VERSION: ${{ needs.guard.outputs.version }}
+
+      - name: Commit bottle block
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/kane-cli.rb
+          if git diff --cached --quiet; then
+            echo "No formula changes — bottle block already current."
+            exit 0
+          fi
+          git commit -m "Add bottle block for kane-cli ${{ needs.guard.outputs.version }}"
+          git push origin main
