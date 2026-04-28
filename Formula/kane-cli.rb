@@ -9,33 +9,16 @@ class KaneCli < Formula
   license "Apache-2.0"
   version "0.2.7"
 
-  # No source compilation — the install step just pulls a precompiled npm
-  # package (with platform-specific prebuilt sub-packages) and symlinks the
-  # bin entry. Declaring `bottle :unneeded` skips brew's build-environment
-  # setup, which otherwise runs `fatal_setup_build_environment_checks` and
-  # hard-fails with "Your Xcode is too outdated" on machines whose Xcode
-  # is older than the current macOS SDK requires (e.g. Xcode 16.x on
-  # macOS 26). brew/Library/Homebrew/extend/os/mac/diagnostic.rb#L236.
-  bottle :unneeded
-
   depends_on "node"
 
   def install
     # Strip --build-from-source from std_npm_args (brew/Library/Homebrew/
-    # language/node.rb injects it unconditionally). For sharp specifically,
-    # this forces compilation via node-gyp instead of using the platform
-    # prebuilt — which also tries to invoke the toolchain. With `bottle
-    # :unneeded` above, the build env isn't set up at all, but the flag
-    # would still steer sharp toward source on machines that DO have a
-    # current toolchain. Strip it to keep behavior consistent.
+    # language/node.rb injects it unconditionally). For sharp, that flag
+    # forces a node-gyp compile instead of using the prebuilt — which
+    # invokes the toolchain. Strip it so install stays toolchain-free.
     args = std_npm_args.reject { |arg| arg == "--build-from-source" }
     system "npm", "install", *args
     bin.install_symlink libexec.glob("bin/*")
-
-    # The npm meta package declares optionalDependencies on platform-specific
-    # native binary packages (@testmuai/kane-cli-{darwin-arm64,linux-x64,win-x64}).
-    # npm installs only the matching one for the current platform — the others
-    # are silently skipped and never present, so no cleanup is required here.
   end
 
   def caveats
