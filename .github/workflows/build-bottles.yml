@@ -50,17 +50,38 @@ jobs:
 
   build:
     needs: guard
-    name: Build (${{ matrix.label }})
+    name: Build (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: macos-15
-            label: arm64_sequoia
-          - os: macos-14
-            label: arm64_sonoma
-          - os: ubuntu-latest
-            label: x86_64_linux
+        # Each runner produces a bottle whose label is auto-detected from
+        # the running OS (see "Determine bottle label" step). Adding a new
+        # platform = adding one entry here, no other workflow changes.
+        #
+        # Coverage today:
+        #   macos-15      → arm64_sequoia    (Apple Silicon, macOS 15)
+        #   macos-14      → arm64_sonoma     (Apple Silicon, macOS 14)
+        #   macos-13      → ventura          (Intel x86_64, macOS 13)
+        #   macos-latest  → whatever GHA's "latest" alias points at
+        #                  (currently arm64_sonoma — duplicates macos-14;
+        #                  kept as forward-compat: when GHA promotes
+        #                  Sequoia/Tahoe, this entry auto-bumps).
+        #   ubuntu-latest → x86_64_linux
+        #
+        # Not covered:
+        #   arm64_tahoe   — GHA doesn't ship `macos-26` runners yet. brew's
+        #                   bottle fallback should pick arm64_sequoia on
+        #                   Tahoe in practice. Add `macos-26` here when GHA
+        #                   exposes it.
+        #   arm64_linux   — `@testmuai/kane-cli-linux-arm64` does not exist
+        #                   on npm, so there's no platform binary to bundle.
+        #                   Out of scope until kane-cli ships that subpackage.
+        os:
+          - macos-15
+          - macos-14
+          - macos-13
+          - macos-latest
+          - ubuntu-latest
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -68,7 +89,32 @@ jobs:
           ref: main
 
       - name: Set up Homebrew
-        uses: Homebrew/actions/setup-homebrew@master
+        uses: Homebrew/actions/setup-homebrew@main
+
+      - name: Determine bottle label
+        id: label
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            LABEL="x86_64_linux"
+          else
+            ARCH=$(uname -m)
+            MAJOR=$(sw_vers -productVersion | cut -d. -f1)
+            case "$MAJOR" in
+              13) NAME=ventura ;;
+              14) NAME=sonoma ;;
+              15) NAME=sequoia ;;
+              16|26) NAME=tahoe ;;  # macOS 26 = Tahoe (in case Apple/brew renumber)
+              *)  NAME="macos${MAJOR}" ;;
+            esac
+            if [ "$ARCH" = "arm64" ]; then
+              LABEL="arm64_${NAME}"
+            else
+              LABEL="${NAME}"
+            fi
+          fi
+          echo "label=${LABEL}" >> "$GITHUB_OUTPUT"
+          echo "Bottle label for this runner: ${LABEL}"
 
       - name: Tap self into Homebrew
         run: |
@@ -77,10 +123,19 @@ jobs:
           ln -snf "$GITHUB_WORKSPACE" "$TAP_DIR"
           brew tap | grep lambdatest/kane
 
+      # Pre-install node so `brew install --build-bottle` doesn't have to
+      # resolve the dep from a freshly-tapped homebrew/core. Without this,
+      # the Linux runner failed with "No available formula with the name
+      # 'node'" even though node was clearly tapped — a known race between
+      # `setup-homebrew` and tap indexing under HOMEBREW_NO_INSTALL_FROM_API.
+      - name: Pre-install node dependency
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+        run: brew install node
+
       - name: Build bottle
         env:
           HOMEBREW_NO_AUTO_UPDATE: "1"
-          HOMEBREW_NO_INSTALL_FROM_API: "1"
         run: |
           VERSION="${{ needs.guard.outputs.version }}"
           ROOT_URL="https://github.com/LambdaTest/homebrew-kane/releases/download/kane-cli-${VERSION}"
@@ -104,7 +159,9 @@ jobs:
       - name: Upload bottle artifact
         uses: actions/upload-artifact@v4
         with:
-          name: bottle-${{ matrix.label }}
+          # Use runner os (not detected label) so duplicate labels from
+          # macos-latest aliasing onto an existing runner don't collide.
+          name: bottle-${{ matrix.os }}
           path: |
             kane-cli-*.bottle.tar.gz
             kane-cli-*.bottle.json
@@ -123,6 +180,9 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: bottles
+          # When two runners produce bottles with the same label (e.g.
+          # macos-latest aliasing macos-14 today), download-artifact's
+          # merge keeps one — same-label bottles are interchangeable.
           merge-multiple: true
 
       - name: Inventory artifacts
@@ -145,41 +205,50 @@ jobs:
           fi
 
       - name: Compute sha256s and patch formula
+        env:
+          VERSION: ${{ needs.guard.outputs.version }}
         run: |
-          VERSION="${{ needs.guard.outputs.version }}"
           python3 - <<'PY'
           import hashlib, glob, os, re, sys
 
-          version = os.environ.get("VERSION") or ""
-          if not version:
-              sys.exit("VERSION env var missing")
+          version = os.environ["VERSION"]
 
-          # Map filename label → (cellar, brew DSL key)
-          # All current bottles are toolchain-free symlinks → any_skip_relocation is correct.
-          labels = ["arm64_sequoia", "arm64_sonoma", "x86_64_linux"]
+          # Discover labels from filenames so adding/removing matrix runners
+          # doesn't require updating this script.
           shas = {}
-          for label in labels:
-              matches = glob.glob(f"bottles/kane-cli-{version}.{label}.bottle.tar.gz")
-              if not matches:
-                  print(f"WARN: no bottle found for {label}", file=sys.stderr)
+          for f in sorted(glob.glob(f"bottles/kane-cli-{version}.*.bottle.tar.gz")):
+              m = re.search(rf"kane-cli-{re.escape(version)}\.([^.]+)\.bottle\.tar\.gz$", f)
+              if not m:
                   continue
-              with open(matches[0], "rb") as f:
-                  shas[label] = hashlib.sha256(f.read()).hexdigest()
+              label = m.group(1)
+              with open(f, "rb") as fp:
+                  shas[label] = hashlib.sha256(fp.read()).hexdigest()
 
           if not shas:
               sys.exit("No bottle artifacts found — aborting")
 
+          # Order: arm64 macOS newest→oldest, x86_64 macOS newest→oldest, then linux.
+          # Unknown labels go at the end alphabetically.
+          macos_rank = {"tahoe": 0, "sequoia": 1, "sonoma": 2, "ventura": 3, "monterey": 4}
+          def sort_key(label):
+              if label == "x86_64_linux":
+                  return (3, 0, label)
+              if label.startswith("arm64_"):
+                  name = label[len("arm64_"):]
+                  return (0, macos_rank.get(name, 99), label)
+              return (1, macos_rank.get(label, 99), label)  # x86_64 macOS
+          ordered = sorted(shas.keys(), key=sort_key)
+
           root_url = f"https://github.com/LambdaTest/homebrew-kane/releases/download/kane-cli-{version}"
-          width = max(len(k) for k in shas) + 1  # for column alignment after the colon
+          width = max(len(k) for k in ordered) + 1
           lines = [
               "  bottle do",
               f'    root_url "{root_url}"',
           ]
-          for label in labels:
-              if label in shas:
-                  lines.append(
-                      f'    sha256 cellar: :any_skip_relocation, {label}:{" " * (width - len(label))}"{shas[label]}"'
-                  )
+          for label in ordered:
+              lines.append(
+                  f'    sha256 cellar: :any_skip_relocation, {label}:{" " * (width - len(label))}"{shas[label]}"'
+              )
           lines.append("  end")
           block = "\n".join(lines) + "\n"
 
@@ -205,8 +274,6 @@ jobs:
           print("Patched formula:")
           print(src)
           PY
-        env:
-          VERSION: ${{ needs.guard.outputs.version }}
 
       - name: Commit bottle block
         run: |
