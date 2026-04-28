@@ -61,7 +61,6 @@ jobs:
         # Coverage today:
         #   macos-15      → arm64_sequoia    (Apple Silicon, macOS 15)
         #   macos-14      → arm64_sonoma     (Apple Silicon, macOS 14)
-        #   macos-13      → ventura          (Intel x86_64, macOS 13)
         #   macos-latest  → whatever GHA's "latest" alias points at
         #                  (currently arm64_sonoma — duplicates macos-14;
         #                  kept as forward-compat: when GHA promotes
@@ -69,6 +68,16 @@ jobs:
         #   ubuntu-latest → x86_64_linux
         #
         # Not covered:
+        #   ventura       — Intel x86_64. `macos-13` is GHA's last free Intel
+        #                   pool, deprecating, and queues for 30+ min before
+        #                   allocation. Adding it gates the entire publish
+        #                   on Intel availability, which means waiting hours
+        #                   per release. Intel users still install fine —
+        #                   brew falls back to source build (npm install)
+        #                   when no matching bottle is published. Re-add
+        #                   only if (a) Intel queue improves, or (b) we move
+        #                   to `macos-13-large` (paid) on a split workflow
+        #                   that doesn't gate the main publish.
         #   arm64_tahoe   — GHA doesn't ship `macos-26` runners yet. brew's
         #                   bottle fallback should pick arm64_sequoia on
         #                   Tahoe in practice. Add `macos-26` here when GHA
@@ -79,7 +88,6 @@ jobs:
         os:
           - macos-15
           - macos-14
-          - macos-13
           - macos-latest
           - ubuntu-latest
     runs-on: ${{ matrix.os }}
