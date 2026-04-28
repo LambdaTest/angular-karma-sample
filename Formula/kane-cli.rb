@@ -12,7 +12,15 @@ class KaneCli < Formula
   depends_on "node"
 
   def install
-    system "npm", "install", *std_npm_args
+    # Strip --build-from-source from std_npm_args. Brew injects this flag
+    # unconditionally (Library/Homebrew/language/node.rb), which forces every
+    # native dep to compile via node-gyp. kane-cli pulls in `sharp`, whose
+    # libvips bindings need a current macOS SDK; on machines with an older
+    # Xcode (e.g. 16.x on macOS 26) the compile blows up with brew's
+    # "Your Xcode is too outdated" hard-fail. Letting npm install the
+    # `@img/sharp-{platform}` prebuilt instead avoids any compilation.
+    args = std_npm_args.reject { |arg| arg == "--build-from-source" }
+    system "npm", "install", *args
     bin.install_symlink libexec.glob("bin/*")
 
     # The npm meta package declares optionalDependencies on platform-specific
