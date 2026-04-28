@@ -9,16 +9,25 @@ class KaneCli < Formula
   license "Apache-2.0"
   version "0.2.7"
 
+  # No source compilation — the install step just pulls a precompiled npm
+  # package (with platform-specific prebuilt sub-packages) and symlinks the
+  # bin entry. Declaring `bottle :unneeded` skips brew's build-environment
+  # setup, which otherwise runs `fatal_setup_build_environment_checks` and
+  # hard-fails with "Your Xcode is too outdated" on machines whose Xcode
+  # is older than the current macOS SDK requires (e.g. Xcode 16.x on
+  # macOS 26). brew/Library/Homebrew/extend/os/mac/diagnostic.rb#L236.
+  bottle :unneeded
+
   depends_on "node"
 
   def install
-    # Strip --build-from-source from std_npm_args. Brew injects this flag
-    # unconditionally (Library/Homebrew/language/node.rb), which forces every
-    # native dep to compile via node-gyp. kane-cli pulls in `sharp`, whose
-    # libvips bindings need a current macOS SDK; on machines with an older
-    # Xcode (e.g. 16.x on macOS 26) the compile blows up with brew's
-    # "Your Xcode is too outdated" hard-fail. Letting npm install the
-    # `@img/sharp-{platform}` prebuilt instead avoids any compilation.
+    # Strip --build-from-source from std_npm_args (brew/Library/Homebrew/
+    # language/node.rb injects it unconditionally). For sharp specifically,
+    # this forces compilation via node-gyp instead of using the platform
+    # prebuilt — which also tries to invoke the toolchain. With `bottle
+    # :unneeded` above, the build env isn't set up at all, but the flag
+    # would still steer sharp toward source on machines that DO have a
+    # current toolchain. Strip it to keep behavior consistent.
     args = std_npm_args.reject { |arg| arg == "--build-from-source" }
     system "npm", "install", *args
     bin.install_symlink libexec.glob("bin/*")
