@@ -23,8 +23,8 @@ class KaneCli < Formula
 
   def caveats
     <<~EOS
-      Currently supported platforms: macOS ARM64 (Apple Silicon) and Linux x64.
-      Intel Mac and ARM Linux binaries are not yet available.
+      Currently supported platforms: macOS (Apple Silicon and Intel) and Linux x64.
+      ARM Linux is not yet available.
     EOS
   end
 
