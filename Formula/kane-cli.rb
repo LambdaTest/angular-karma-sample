@@ -11,8 +11,10 @@ class KaneCli < Formula
 
   # Bottle block intentionally removed — the previously published bottles
   # ship without the v16-runner binary (platform optional dep was missing
-  # from the brew install). Build bottles workflow will repopulate this
-  # block once the install fix below is merged.
+  # from the brew install). The `.github/workflows/build-bottles.yml`
+  # pipeline rebuilds bottles and rewrites this block when re-run after
+  # this fix lands. Until then brew falls back to source build, which is
+  # correct with the install changes below.
 
   depends_on "node"
 
@@ -35,23 +37,34 @@ class KaneCli < Formula
     # /../node_modules/<plat-pkg>/bin/v16-runner`). brew's --ignore-scripts
     # also blocks the platform pkg's postinstall (which chmods the binary),
     # so chmod here ourselves.
+    # Hardware::CPU.arm? is true on Linux aarch64 too — gate Linux on
+    # `intel?` so we don't try to install an x64 binary on linux-arm64.
     platform_pkg =
       if OS.mac?
         Hardware::CPU.arm? ? "@testmuai/kane-cli-darwin-arm64" : "@testmuai/kane-cli-darwin-x64"
-      elsif OS.linux?
+      elsif OS.linux? && Hardware::CPU.intel?
         "@testmuai/kane-cli-linux-x64"
       end
 
-    if platform_pkg
-      pkg_dir = libexec/"lib/node_modules/@testmuai/kane-cli"
-      cd pkg_dir do
-        system "npm", "install", "--no-save",
-               "--cache=#{HOMEBREW_CACHE}/npm_cache",
-               "#{platform_pkg}@#{version}"
-      end
-      runner = pkg_dir/"node_modules/#{platform_pkg}/bin/v16-runner"
-      chmod 0755, runner if runner.exist?
+    # Match the caveats: kane-cli is unusable without v16-runner, so fail
+    # loudly at install time on platforms that don't ship one rather than
+    # producing a silent broken install.
+    odie "kane-cli does not yet ship a v16-runner binary for this platform." if platform_pkg.nil?
+
+    pkg_dir = libexec/"lib/node_modules/@testmuai/kane-cli"
+    cd pkg_dir do
+      # Mirror brew's tightened npm flags (--ignore-scripts, --audit/fund off)
+      # so this second install matches the security/sandbox stance of the
+      # first. We chmod the binary ourselves below, so blocking the pkg's
+      # postinstall is fine.
+      system "npm", "install", "--no-save",
+             "--ignore-scripts", "--audit=false", "--fund=false",
+             "--loglevel=error",
+             "--cache=#{HOMEBREW_CACHE}/npm_cache",
+             "#{platform_pkg}@#{version}"
     end
+    runner = pkg_dir/"node_modules/#{platform_pkg}/bin/v16-runner"
+    chmod 0755, runner if runner.exist?
 
     bin.install_symlink libexec.glob("bin/*")
   end
@@ -71,7 +84,7 @@ class KaneCli < Formula
     runner_pkg =
       if OS.mac?
         Hardware::CPU.arm? ? "@testmuai/kane-cli-darwin-arm64" : "@testmuai/kane-cli-darwin-x64"
-      elsif OS.linux?
+      elsif OS.linux? && Hardware::CPU.intel?
         "@testmuai/kane-cli-linux-x64"
       end
     runner = libexec/"lib/node_modules/@testmuai/kane-cli/node_modules/#{runner_pkg}/bin/v16-runner"
