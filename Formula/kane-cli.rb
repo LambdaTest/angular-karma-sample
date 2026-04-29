@@ -9,12 +9,10 @@ class KaneCli < Formula
   license "Apache-2.0"
   version "0.2.7"
 
-  bottle do
-    root_url "https://github.com/LambdaTest/homebrew-kane/releases/download/kane-cli-0.2.7"
-    sha256 cellar: :any_skip_relocation, arm64_sequoia: "7cf5cded5e6e0eed67d5be76e6e0b3b9e895d7a422add2d3d30625615ee19e17"
-    sha256 cellar: :any_skip_relocation, arm64_sonoma:  "4b4e61f6e38d4b911b652ad7018a86d10ad17d4f102daa65b5194e1985116e7c"
-    sha256 cellar: :any_skip_relocation, x86_64_linux:  "2cf64adeb2deaa709baa276026e5bbe12795d596e200461aacfd66516524c48d"
-  end
+  # Bottle block intentionally removed — the previously published bottles
+  # ship without the v16-runner binary (platform optional dep was missing
+  # from the brew install). Build bottles workflow will repopulate this
+  # block once the install fix below is merged.
 
   depends_on "node"
 
@@ -25,6 +23,36 @@ class KaneCli < Formula
     # invokes the toolchain. Strip it so install stays toolchain-free.
     args = std_npm_args.reject { |arg| arg == "--build-from-source" }
     system "npm", "install", *args
+
+    # Install the platform-specific optional dep that ships v16-runner.
+    # brew's `--prefix=#{libexec}` mode behaves like a global install and
+    # modern npm skips `optionalDependencies` in that mode, so the platform
+    # subpackage (@testmuai/kane-cli-<plat>) is missing after the main
+    # install — kane-cli then can't find v16-runner at runtime.
+    #
+    # Install it explicitly into the main package's nested node_modules so
+    # the runtime resolver finds it via the first probed path (`<pkg>/dist
+    # /../node_modules/<plat-pkg>/bin/v16-runner`). brew's --ignore-scripts
+    # also blocks the platform pkg's postinstall (which chmods the binary),
+    # so chmod here ourselves.
+    platform_pkg =
+      if OS.mac?
+        Hardware::CPU.arm? ? "@testmuai/kane-cli-darwin-arm64" : "@testmuai/kane-cli-darwin-x64"
+      elsif OS.linux?
+        "@testmuai/kane-cli-linux-x64"
+      end
+
+    if platform_pkg
+      pkg_dir = libexec/"lib/node_modules/@testmuai/kane-cli"
+      cd pkg_dir do
+        system "npm", "install", "--no-save",
+               "--cache=#{HOMEBREW_CACHE}/npm_cache",
+               "#{platform_pkg}@#{version}"
+      end
+      runner = pkg_dir/"node_modules/#{platform_pkg}/bin/v16-runner"
+      chmod 0755, runner if runner.exist?
+    end
+
     bin.install_symlink libexec.glob("bin/*")
   end
 
@@ -37,5 +65,17 @@ class KaneCli < Formula
 
   test do
     assert_match version.to_s, shell_output("#{bin}/kane-cli --version")
+    # Smoke-test the v16-runner binary is present and executable. Without
+    # this, `kane-cli --version` passes (it's pure JS) but `kane-cli run`
+    # throws `v16-runner not found`. See git history for the regression.
+    runner_pkg =
+      if OS.mac?
+        Hardware::CPU.arm? ? "@testmuai/kane-cli-darwin-arm64" : "@testmuai/kane-cli-darwin-x64"
+      elsif OS.linux?
+        "@testmuai/kane-cli-linux-x64"
+      end
+    runner = libexec/"lib/node_modules/@testmuai/kane-cli/node_modules/#{runner_pkg}/bin/v16-runner"
+    assert_predicate runner, :exist?, "v16-runner binary missing — platform pkg #{runner_pkg} not installed"
+    assert_predicate runner, :executable?, "v16-runner not executable — postinstall chmod missed"
   end
 end
