@@ -1,0 +1,167 @@
+name: Validate brew install
+
+# Validates `brew install LambdaTest/kane/kane-cli` works end-to-end on
+# every platform we ship to. Catches:
+#   - bottle pour failures (gzip corruption, tar truncation)
+#   - missing v16-runner binary in the bottle
+#   - bottle-fallback breakage (e.g., Tahoe falling back to sonoma)
+#   - source-build failures on platforms without a bottle (Intel Mac)
+#   - regressions in the formula's `def install` after refactors
+#
+# Trigger model:
+#   - `workflow_run` after `Build bottles` succeeds — auto-validates the
+#     freshly-published bottles before anyone reports a broken install.
+#   - `workflow_dispatch` for manual / spot-check runs.
+
+on:
+  workflow_run:
+    workflows: ["Build bottles"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      expected-version:
+        description: "Version `kane-cli --version` should print. Leave blank to read from Formula/kane-cli.rb on main."
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.read.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Resolve expected version
+        id: read
+        run: |
+          if [ -n "${{ inputs.expected-version }}" ]; then
+            VERSION="${{ inputs.expected-version }}"
+          else
+            VERSION=$(grep '^  version' Formula/kane-cli.rb | awk -F'"' '{print $2}')
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Validating brew install of kane-cli ${VERSION}"
+
+  validate:
+    needs: guard
+    name: validate (${{ matrix.label }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            label: arm64_sonoma (bottled, primary)
+            expected-install-path: bottle
+          - os: macos-15
+            label: arm64_sequoia (bottle-fallback to sonoma)
+            expected-install-path: bottle
+          - os: ubuntu-latest
+            label: x86_64_linux (bottled)
+            expected-install-path: bottle
+          # Intel Mac — verifies the source-build path. macos-13 runners
+          # queue-starve on GHA so this entry frequently sits pending for
+          # 30+ min. continue-on-error so it doesn't gate the others.
+          # If queue-starved, the other matrix entries still report
+          # results within ~5–10 min.
+          - os: macos-13
+            label: ventura (Intel, source-build)
+            expected-install-path: source
+            continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@main
+
+      - name: Install kane-cli
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+        run: |
+          brew install LambdaTest/kane/kane-cli 2>&1 | tee install.log
+          # Capture which path was taken — bottle pour vs source build
+          if grep -q "Pouring kane-cli-" install.log; then
+            INSTALL_PATH="bottle"
+            POURED_BOTTLE=$(grep -oE "Pouring kane-cli-[^ ]+\.bottle\.tar\.gz" install.log | head -1)
+            echo "✅ Bottle poured: $POURED_BOTTLE"
+          else
+            INSTALL_PATH="source"
+            echo "✅ Source build (no bottle for this platform)"
+          fi
+          echo "INSTALL_PATH=${INSTALL_PATH}" >> "$GITHUB_ENV"
+
+      - name: Assert install path matches expectation
+        run: |
+          EXPECTED="${{ matrix.expected-install-path }}"
+          if [ "$INSTALL_PATH" != "$EXPECTED" ]; then
+            echo "❌ Expected install path '$EXPECTED' but got '$INSTALL_PATH'"
+            echo "   Bottle availability or fallback logic may have regressed."
+            exit 1
+          fi
+          echo "✅ Install path matches expectation: $EXPECTED"
+
+      - name: Verify kane-cli --version
+        run: |
+          OUT=$(kane-cli --version 2>&1)
+          echo "kane-cli --version → $OUT"
+          EXPECTED="${{ needs.guard.outputs.version }}"
+          if ! echo "$OUT" | grep -q "$EXPECTED"; then
+            echo "❌ Expected version '$EXPECTED' but got '$OUT'"
+            exit 1
+          fi
+          echo "✅ Version matches formula"
+
+      - name: Verify v16-runner present + executable
+        # The 0.2.7 incident (homebrew-kane#10) showed `kane-cli --version`
+        # passes (pure JS) even when the v16-runner native binary is
+        # missing — runtime spawn fails later with an opaque error. So
+        # explicitly check the binary exists at the expected path AND is
+        # executable. Path resolves per platform via the same logic the
+        # formula uses.
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            PLATFORM_PKG="@testmuai/kane-cli-linux-x64"
+          else
+            ARCH=$(uname -m)
+            if [ "$ARCH" = "arm64" ]; then
+              PLATFORM_PKG="@testmuai/kane-cli-darwin-arm64"
+            else
+              PLATFORM_PKG="@testmuai/kane-cli-darwin-x64"
+            fi
+          fi
+
+          CELLAR=$(brew --cellar kane-cli)
+          # Find the actual installed version directory (may differ
+          # from the formula's version field if revisions are in play).
+          VERSION_DIR=$(ls -1 "$CELLAR" | head -1)
+          RUNNER="$CELLAR/$VERSION_DIR/libexec/lib/node_modules/@testmuai/kane-cli/node_modules/$PLATFORM_PKG/bin/v16-runner"
+
+          if [ ! -e "$RUNNER" ]; then
+            echo "❌ v16-runner missing at: $RUNNER"
+            echo "   Platform pkg $PLATFORM_PKG was not installed correctly."
+            exit 1
+          fi
+          if [ ! -x "$RUNNER" ]; then
+            echo "❌ v16-runner exists but is not executable: $RUNNER"
+            echo "   chmod 0755 step in def install may have been skipped."
+            exit 1
+          fi
+          BYTES=$(wc -c < "$RUNNER")
+          echo "✅ v16-runner at $RUNNER ($BYTES bytes, executable)"
+
+      - name: Upload install log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: install-log-${{ matrix.os }}
+          path: install.log
+          if-no-files-found: ignore
