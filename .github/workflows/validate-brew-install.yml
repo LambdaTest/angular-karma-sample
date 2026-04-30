@@ -60,21 +60,29 @@ jobs:
           - os: macos-14
             label: arm64_sonoma (bottled, primary)
             expected-install-path: bottle
+            install-flags: ""
           - os: macos-15
             label: arm64_sequoia (bottle-fallback to sonoma)
             expected-install-path: bottle
+            install-flags: ""
           - os: ubuntu-latest
             label: x86_64_linux (bottled)
             expected-install-path: bottle
-          # Intel Mac — verifies the source-build path. macos-13 runners
-          # queue-starve on GHA so this entry frequently sits pending for
-          # 30+ min. continue-on-error so it doesn't gate the others.
-          # If queue-starved, the other matrix entries still report
-          # results within ~5–10 min.
-          - os: macos-13
-            label: ventura (Intel, source-build)
+            install-flags: ""
+          # Source-build validation. We can't reliably test the actual
+          # Intel x86_64 path (`macos-13` queues for 30+ min on GHA), so
+          # exercise the same `def install` code path via `--build-from-
+          # source` on macos-14 instead. This catches every source-build
+          # regression class that matters:
+          #   - def install logic broken
+          #   - platform optional-dep install fails
+          #   - v16-runner not at expected path / not executable
+          # The narrow gap (won't catch darwin-x64 npm-pkg-specific bugs,
+          # which are rare) is worth the reliability win.
+          - os: macos-14
+            label: arm64_sonoma (source-build, Intel-equivalent path)
             expected-install-path: source
-            continue-on-error: true
+            install-flags: "--build-from-source"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -87,7 +95,7 @@ jobs:
         env:
           HOMEBREW_NO_AUTO_UPDATE: "1"
         run: |
-          brew install LambdaTest/kane/kane-cli 2>&1 | tee install.log
+          brew install ${{ matrix.install-flags }} LambdaTest/kane/kane-cli 2>&1 | tee install.log
           # Capture which path was taken — bottle pour vs source build
           if grep -q "Pouring kane-cli-" install.log; then
             INSTALL_PATH="bottle"
