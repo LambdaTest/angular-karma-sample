@@ -53,6 +53,10 @@ jobs:
     needs: guard
     name: validate (${{ matrix.label }})
     runs-on: ${{ matrix.os }}
+    # Per-matrix-entry continue-on-error opt-in. Used by the macos-13
+    # Intel entry, which queue-starves and shouldn't fail the whole
+    # workflow when no runner allocates. Defaults to false otherwise.
+    continue-on-error: ${{ matrix.continue-on-error || false }}
     strategy:
       fail-fast: false
       matrix:
@@ -69,20 +73,31 @@ jobs:
             label: x86_64_linux (bottled)
             expected-install-path: bottle
             install-flags: ""
-          # Source-build validation. We can't reliably test the actual
-          # Intel x86_64 path (`macos-13` queues for 30+ min on GHA), so
-          # exercise the same `def install` code path via `--build-from-
-          # source` on macos-14 instead. This catches every source-build
-          # regression class that matters:
-          #   - def install logic broken
-          #   - platform optional-dep install fails
-          #   - v16-runner not at expected path / not executable
-          # The narrow gap (won't catch darwin-x64 npm-pkg-specific bugs,
-          # which are rare) is worth the reliability win.
+          # Deterministic source-build validation on arm64. Catches
+          # def install regressions every run within ~10 min. Doesn't
+          # exercise the darwin-x64 platform package — `Hardware::CPU
+          # .intel?` is false on arm64 so def install picks the
+          # darwin-arm64 package. For real darwin-x64 coverage, see
+          # the macos-13 entry below.
           - os: macos-14
-            label: arm64_sonoma (source-build, Intel-equivalent path)
+            label: arm64_sonoma (source-build, def-install regression check)
             expected-install-path: source
             install-flags: "--build-from-source"
+          # Real Intel x86_64 + darwin-x64 platform package validation.
+          # `macos-13` runners queue-starve on GHA (30+ min routinely)
+          # so this entry frequently sits pending. `continue-on-error:
+          # true` ensures it doesn't fail the workflow when starved —
+          # the deterministic 4 entries above still report results
+          # within ~10 min. When this DOES allocate, it catches the
+          # narrow class of bugs the proxy can't:
+          #   - @testmuai/kane-cli-darwin-x64 npm pkg corrupt/missing
+          #   - darwin-x64 v16-runner binary won't execute on Intel CPU
+          #   - Intel-specific `Hardware::CPU.intel?` branch in def install
+          - os: macos-13
+            label: ventura (Intel, source-build, real darwin-x64)
+            expected-install-path: source
+            install-flags: ""
+            continue-on-error: true
     steps:
       - uses: actions/checkout@v4
         with:
