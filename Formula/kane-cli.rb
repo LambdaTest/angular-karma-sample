@@ -11,9 +11,9 @@ class KaneCli < Formula
 
   bottle do
     root_url "https://github.com/LambdaTest/homebrew-kane/releases/download/kane-cli-0.2.9"
-    sha256 cellar: :any_skip_relocation, arm64_sequoia: "5e3bf2d50e3db8088c021c5e1a562a39b7f4968f14862f5c19264e9e9c2bbcf9"
-    sha256 cellar: :any_skip_relocation, arm64_sonoma:  "392d81d7f088cb584891cf8e8a5e73e16d218ac43b3a1f396993d73b29c75314"
-    sha256 cellar: :any_skip_relocation, x86_64_linux:  "63956f0c8ea1627fb07875117ba8cf76127d3c199474f947c1498af834063e0e"
+    sha256 cellar: :any_skip_relocation, arm64_sequoia: "6603d35196a4e7addd5d5b1e79aad6739db9e39f283bca0671e044363e9e89da"
+    sha256 cellar: :any_skip_relocation, arm64_sonoma:  "4ec0c15a4806158742a411962bd17e7df7b8b67ff39a2d094f39f4ac397e68a3"
+    sha256 cellar: :any_skip_relocation, x86_64_linux:  "a9c1befa4af18bb44ea7b9cef33b66f336a0c377f11ceb9f6302417885f649da"
   end
 
   # Bottle block intentionally removed — the previously published bottles
