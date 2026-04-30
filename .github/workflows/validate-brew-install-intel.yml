@@ -83,8 +83,10 @@ jobs:
 
       - name: Verify darwin-x64 v16-runner present + executable
         run: |
+          # Use the asserted version directly — `ls | head -1` would sort
+          # lexicographically (0.10.0 < 0.2.9).
           CELLAR=$(brew --cellar kane-cli)
-          VERSION_DIR=$(ls -1 "$CELLAR" | head -1)
+          VERSION_DIR="${{ inputs.expected-version }}"
           RUNNER="$CELLAR/$VERSION_DIR/libexec/lib/node_modules/@testmuai/kane-cli/node_modules/@testmuai/kane-cli-darwin-x64/bin/v16-runner"
 
           if [ ! -e "$RUNNER" ]; then

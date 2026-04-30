@@ -88,7 +88,14 @@ jobs:
           # would publish bottles into a release whose URL the formula no
           # longer references after our patch step rewrites the block.
           # Belt-and-braces against the stale-bottle-block class of bug.
-          STALE_ROOT=$(grep -oE 'kane-cli-[0-9]+\.[0-9]+\.[0-9]+' Formula/kane-cli.rb | grep -v "^kane-cli-${VERSION}$" | head -1 || true)
+          #
+          # Scoped to `root_url` lines only — matching `kane-cli-X.Y.Z`
+          # anywhere in the formula would false-positive on the `url` line
+          # (which always contains the npm tarball with the current version)
+          # and on any comment that ever mentions an old version literal.
+          STALE_ROOT=$(grep -E '^[[:space:]]*root_url[[:space:]]+"' Formula/kane-cli.rb \
+            | grep -oE 'kane-cli-[0-9]+\.[0-9]+\.[0-9]+' \
+            | grep -v "^kane-cli-${VERSION}$" | head -1 || true)
           if [ -n "$STALE_ROOT" ]; then
             echo "❌ Formula has a stale bottle block referencing ${STALE_ROOT} but version is ${VERSION}."
             echo "   update-formula.yml should strip the bottle block on every version bump."

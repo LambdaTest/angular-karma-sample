@@ -58,7 +58,15 @@ jobs:
           FORMULA_VERSION=$(grep '^  version' Formula/kane-cli.rb | awk -F'"' '{print $2}')
           if [ "$VERSION" != "$FORMULA_VERSION" ]; then
             echo "❌ Version mismatch: input=${VERSION}, formula on main=${FORMULA_VERSION}."
-            echo "   Main has advanced (or the input is wrong). Re-dispatch with the current version."
+            echo ""
+            echo "   This is often a BENIGN race: Update Homebrew Formula merged"
+            echo "   a newer version between the Build bottles publish that"
+            echo "   triggered this validation and this workflow firing."
+            echo "   The bottles for ${VERSION} were still published correctly —"
+            echo "   they're just no longer the version main advertises."
+            echo ""
+            echo "   Re-dispatch this workflow with expected-version=${FORMULA_VERSION}"
+            echo "   once the next Build bottles run for that version completes."
             exit 1
           fi
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
@@ -163,10 +171,11 @@ jobs:
             fi
           fi
 
+          # Use the version we just asserted on. Avoid `ls -1 | head -1`
+          # which sorts lexicographically (0.10.0 < 0.2.9) — fine for one
+          # install today but breaks on shared cellars or 0.10+.
           CELLAR=$(brew --cellar kane-cli)
-          # Find the actual installed version directory (may differ
-          # from the formula's version field if revisions are in play).
-          VERSION_DIR=$(ls -1 "$CELLAR" | head -1)
+          VERSION_DIR="${{ needs.guard.outputs.version }}"
           RUNNER="$CELLAR/$VERSION_DIR/libexec/lib/node_modules/@testmuai/kane-cli/node_modules/$PLATFORM_PKG/bin/v16-runner"
 
           if [ ! -e "$RUNNER" ]; then
