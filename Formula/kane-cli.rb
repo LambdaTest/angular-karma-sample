@@ -11,15 +11,8 @@ class KaneCli < Formula
 
   bottle do
     root_url "https://github.com/LambdaTest/homebrew-kane/releases/download/kane-cli-0.2.9"
-    # arm64_sequoia removed: bottle has a real gzip CRC error (`gzip -t`
-    # reports "invalid compressed data--crc error"; tar fails mid-extract
-    # on the v16-runner file). Reproducible across both 0.2.9 builds —
-    # something on the macos-15 GHA runner consistently produces a
-    # corrupt artifact. arm64_sonoma + x86_64_linux are healthy.
-    # Sequoia/Tahoe users now fall back to arm64_sonoma which is fine.
-    # Investigate macos-15 build pipeline before re-adding.
-    sha256 cellar: :any_skip_relocation, arm64_sonoma: "4ec0c15a4806158742a411962bd17e7df7b8b67ff39a2d094f39f4ac397e68a3"
-    sha256 cellar: :any_skip_relocation, x86_64_linux: "a9c1befa4af18bb44ea7b9cef33b66f336a0c377f11ceb9f6302417885f649da"
+    sha256 cellar: :any_skip_relocation, arm64_sonoma: "5a389118ae6ae58ed78fda916827512596a09f717864ffe9b588a8491b50129d"
+    sha256 cellar: :any_skip_relocation, x86_64_linux: "a2e591d337b1057e5bee20b4647d9f5d4a692502804daaa0bc19468808a92994"
   end
 
   # Bottle block intentionally removed — the previously published bottles
