@@ -387,3 +387,19 @@ jobs:
           fi
           git commit -m "Add bottle block for kane-cli ${{ needs.guard.outputs.version }}"
           git push origin main
+
+      - name: Trigger Validate brew install with explicit version
+        # Chain validation via `gh workflow run` instead of `workflow_run`
+        # so we carry the exact version we just published into validation.
+        # Previously: validate-brew-install used workflow_run + read formula
+        # version on main, which races with `Update Homebrew Formula` —
+        # validation could end up testing whatever main now points at
+        # instead of these bottles. Explicit dispatch eliminates the race.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ needs.guard.outputs.version }}"
+          gh workflow run "Validate brew install" \
+            --ref main \
+            -f expected-version="${VERSION}"
+          echo "✅ Dispatched Validate brew install for kane-cli ${VERSION}"

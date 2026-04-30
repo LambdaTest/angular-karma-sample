@@ -9,27 +9,35 @@ name: Validate brew install
 #   - regressions in the formula's `def install` after refactors
 #
 # Trigger model:
-#   - `workflow_run` after `Build bottles` succeeds — auto-validates the
-#     freshly-published bottles before anyone reports a broken install.
-#   - `workflow_dispatch` for manual / spot-check runs.
+#   - `workflow_dispatch` only. Build bottles' publish job invokes this
+#     workflow via `gh workflow run --ref main -f expected-version=$V`
+#     after a successful publish — so we always carry the EXACT version
+#     Build bottles produced. workflow_run was previously used but races
+#     with `Update Homebrew Formula` advancing main: validation could
+#     end up testing whatever main now points at instead of the bottles
+#     just published. Explicit dispatch + required version eliminates
+#     the race.
 
 on:
-  workflow_run:
-    workflows: ["Build bottles"]
-    types: [completed]
   workflow_dispatch:
     inputs:
       expected-version:
-        description: "Version `kane-cli --version` should print. Leave blank to read from Formula/kane-cli.rb on main."
-        required: false
+        description: "Version to validate (e.g. 0.2.9). REQUIRED — this workflow refuses to run without an explicit pin."
+        required: true
         type: string
 
 permissions:
   contents: read
 
+# Serialize validation runs so two concurrent dispatches can't race.
+# `cancel-in-progress: false` because brew install + matrix sweep
+# shouldn't be aborted partway.
+concurrency:
+  group: validate-brew-install-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   guard:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.read.outputs.version }}
@@ -38,13 +46,20 @@ jobs:
         with:
           ref: main
 
-      - name: Resolve expected version
+      - name: Resolve + verify expected version
         id: read
+        # Fail fast if main has advanced past the version we were asked
+        # to validate. This catches the race where Update Homebrew
+        # Formula bumped the formula version between Build bottles'
+        # success and this workflow firing — re-dispatch validation
+        # with the new version once main settles.
         run: |
-          if [ -n "${{ inputs.expected-version }}" ]; then
-            VERSION="${{ inputs.expected-version }}"
-          else
-            VERSION=$(grep '^  version' Formula/kane-cli.rb | awk -F'"' '{print $2}')
+          VERSION="${{ inputs.expected-version }}"
+          FORMULA_VERSION=$(grep '^  version' Formula/kane-cli.rb | awk -F'"' '{print $2}')
+          if [ "$VERSION" != "$FORMULA_VERSION" ]; then
+            echo "❌ Version mismatch: input=${VERSION}, formula on main=${FORMULA_VERSION}."
+            echo "   Main has advanced (or the input is wrong). Re-dispatch with the current version."
+            exit 1
           fi
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "Validating brew install of kane-cli ${VERSION}"
@@ -53,10 +68,6 @@ jobs:
     needs: guard
     name: validate (${{ matrix.label }})
     runs-on: ${{ matrix.os }}
-    # Per-matrix-entry continue-on-error opt-in. Used by the macos-13
-    # Intel entry, which queue-starves and shouldn't fail the whole
-    # workflow when no runner allocates. Defaults to false otherwise.
-    continue-on-error: ${{ matrix.continue-on-error || false }}
     strategy:
       fail-fast: false
       matrix:
@@ -77,27 +88,17 @@ jobs:
           # def install regressions every run within ~10 min. Doesn't
           # exercise the darwin-x64 platform package — `Hardware::CPU
           # .intel?` is false on arm64 so def install picks the
-          # darwin-arm64 package. For real darwin-x64 coverage, see
-          # the macos-13 entry below.
+          # darwin-arm64 package. Real Intel coverage is split into a
+          # separate manually-dispatched workflow (validate-brew-
+          # install-intel.yml) — including macos-13 here would stall
+          # the post-publish gate indefinitely while waiting for an
+          # Intel runner. continue-on-error doesn't help: it lets a
+          # FAILED job pass, but a queued-never-allocated job leaves
+          # the workflow "in progress" with no signal.
           - os: macos-14
             label: arm64_sonoma (source-build, def-install regression check)
             expected-install-path: source
             install-flags: "--build-from-source"
-          # Real Intel x86_64 + darwin-x64 platform package validation.
-          # `macos-13` runners queue-starve on GHA (30+ min routinely)
-          # so this entry frequently sits pending. `continue-on-error:
-          # true` ensures it doesn't fail the workflow when starved —
-          # the deterministic 4 entries above still report results
-          # within ~10 min. When this DOES allocate, it catches the
-          # narrow class of bugs the proxy can't:
-          #   - @testmuai/kane-cli-darwin-x64 npm pkg corrupt/missing
-          #   - darwin-x64 v16-runner binary won't execute on Intel CPU
-          #   - Intel-specific `Hardware::CPU.intel?` branch in def install
-          - os: macos-13
-            label: ventura (Intel, source-build, real darwin-x64)
-            expected-install-path: source
-            install-flags: ""
-            continue-on-error: true
     steps:
       - uses: actions/checkout@v4
         with:
