@@ -12,6 +12,10 @@ on:
 
 permissions:
   contents: write
+  # Required for the final step that dispatches Build bottles via
+  # `gh workflow run`. Default GITHUB_TOKEN scope only covers contents
+  # in workflow context.
+  actions: write
 
 jobs:
   update:
@@ -102,11 +106,34 @@ jobs:
           cat "$FORMULA"
 
       - name: Commit and push
+        id: commit
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Formula/kane-cli.rb
-          git diff --cached --quiet && { echo "No changes to commit."; exit 0; }
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            echo "committed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           git commit -m "Update kane-cli to ${VERSION}"
           git push
+          echo "committed=true" >> "$GITHUB_OUTPUT"
+
+      # Auto-chain Build bottles after the formula bump. Conditional on
+      # an actual commit so re-runs that find no changes don't trigger
+      # spurious bottle builds. The Wait-for-npm step earlier in this
+      # workflow + ~30s of runtime here mean the npm tarball has been
+      # available for ≥1 min before bottling starts; well past npm's
+      # `--min-release-age` threshold that bit kane-cli 0.2.9.
+      - name: Trigger Build bottles for the new version
+        if: steps.commit.outputs.committed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          gh workflow run "Build bottles" \
+            --ref main \
+            -f version="${VERSION}"
+          echo "✅ Dispatched Build bottles for kane-cli ${VERSION}"
