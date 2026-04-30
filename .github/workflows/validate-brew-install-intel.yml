@@ -1,0 +1,114 @@
+name: Validate brew install (Intel)
+
+# Best-effort validation of `brew install` on real Intel x86_64 macOS.
+#
+# Why a separate workflow:
+#   GHA's `macos-13` (Intel) runner queue-starves routinely (30+ min
+#   typical, hours not unusual). Putting it inside the main `Validate
+#   brew install` matrix held the post-publish gate "in progress"
+#   indefinitely. `continue-on-error: true` doesn't help — it only
+#   masks failures, not unallocated queued jobs.
+#
+#   This workflow exists so Intel can still be checked when needed,
+#   without polluting the timely post-publish signal. Dispatch manually
+#   (or schedule) when you suspect a darwin-x64-specific regression
+#   (e.g., a publish where the darwin-x64 npm pkg might be corrupt).
+#
+# What this catches that the main workflow can't:
+#   - @testmuai/kane-cli-darwin-x64 npm pkg corrupt/missing
+#   - darwin-x64 v16-runner binary won't execute on real Intel CPU
+#   - Intel-specific `Hardware::CPU.intel?` branch regression in def install
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected-version:
+        description: "Version to validate (e.g. 0.2.9). REQUIRED."
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-brew-install-intel-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate-intel:
+    runs-on: macos-13
+    # Cap individual job runtime once a runner allocates. Doesn't help
+    # with queue starvation (GHA queue time is unbounded), but limits
+    # damage if a runner picks the job up and then hangs.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Verify expected-version matches main
+        run: |
+          VERSION="${{ inputs.expected-version }}"
+          FORMULA_VERSION=$(grep '^  version' Formula/kane-cli.rb | awk -F'"' '{print $2}')
+          if [ "$VERSION" != "$FORMULA_VERSION" ]; then
+            echo "❌ Version mismatch: input=${VERSION}, formula on main=${FORMULA_VERSION}."
+            echo "   Re-dispatch with the current version after main settles."
+            exit 1
+          fi
+
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@main
+
+      - name: Install kane-cli
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+        run: |
+          brew install LambdaTest/kane/kane-cli 2>&1 | tee install.log
+          # On Intel, no bottle is published — expect source-build path.
+          if grep -q "Pouring kane-cli-" install.log; then
+            echo "⚠️  Bottle was poured on Intel (unexpected — investigate)"
+          else
+            echo "✅ Source-build path taken (expected on Intel)"
+          fi
+
+      - name: Verify kane-cli --version
+        run: |
+          OUT=$(kane-cli --version 2>&1)
+          echo "kane-cli --version → $OUT"
+          EXPECTED="${{ inputs.expected-version }}"
+          if ! echo "$OUT" | grep -q "$EXPECTED"; then
+            echo "❌ Expected version '$EXPECTED' but got '$OUT'"
+            exit 1
+          fi
+
+      - name: Verify darwin-x64 v16-runner present + executable
+        run: |
+          # Use the asserted version directly — `ls | head -1` would sort
+          # lexicographically (0.10.0 < 0.2.9).
+          CELLAR=$(brew --cellar kane-cli)
+          VERSION_DIR="${{ inputs.expected-version }}"
+          RUNNER="$CELLAR/$VERSION_DIR/libexec/lib/node_modules/@testmuai/kane-cli/node_modules/@testmuai/kane-cli-darwin-x64/bin/v16-runner"
+
+          if [ ! -e "$RUNNER" ]; then
+            echo "❌ darwin-x64 v16-runner missing at: $RUNNER"
+            exit 1
+          fi
+          if [ ! -x "$RUNNER" ]; then
+            echo "❌ darwin-x64 v16-runner not executable: $RUNNER"
+            exit 1
+          fi
+          # Sanity: can the binary at least start? `--version` exits 0
+          # if it's a healthy x86_64 Mach-O executing on Intel.
+          if ! "$RUNNER" --version >/dev/null 2>&1; then
+            echo "❌ darwin-x64 v16-runner exists but won't execute (bad binary?)"
+            exit 1
+          fi
+          echo "✅ darwin-x64 v16-runner present + executable + runs --version"
+
+      - name: Upload install log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: install-log-intel
+          path: install.log
+          if-no-files-found: ignore
