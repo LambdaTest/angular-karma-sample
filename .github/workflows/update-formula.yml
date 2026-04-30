@@ -62,6 +62,17 @@ jobs:
           echo "sha256:  ${SHA256}"
 
       - name: Update formula
+        # Critical: ALSO strip the existing `bottle do ... end` block. The
+        # block carries the previous release's `root_url` + per-arch shas;
+        # leaving it in place during a version bump means brew tries to
+        # download a non-existent file at the OLD release URL with the
+        # NEW version filename — every install fails until Build bottles
+        # is manually dispatched.
+        #
+        # Stripping the block makes brew fall back to source-build (which
+        # works correctly via def install) during the gap between version
+        # bump and bottle rebuild. When Build bottles runs, it re-inserts
+        # a fresh block with correct shas.
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           TARBALL_URL="${{ steps.tarball.outputs.tarball-url }}"
@@ -71,6 +82,21 @@ jobs:
           sed -i "s|^  url \".*\"|  url \"${TARBALL_URL}\"|" "$FORMULA"
           sed -i "s|^  sha256 \".*\"|  sha256 \"${SHA256}\"|" "$FORMULA"
           sed -i "s|^  version \".*\"|  version \"${VERSION}\"|" "$FORMULA"
+
+          # Strip any existing `bottle do ... end` block — Python regex so
+          # we handle multi-line blocks reliably (sed multi-line is fragile
+          # across BSD/GNU). Same regex Build bottles uses for replacement.
+          python3 - "$FORMULA" <<'PY'
+          import re, sys
+          path = sys.argv[1]
+          with open(path) as f:
+              src = f.read()
+          new = re.sub(r"  bottle do\n(?:.*\n)*?  end\n+", "", src)
+          if new != src:
+              print("Stripped stale bottle block from formula")
+          with open(path, "w") as f:
+              f.write(new)
+          PY
 
           echo "Updated formula to ${VERSION}:"
           cat "$FORMULA"

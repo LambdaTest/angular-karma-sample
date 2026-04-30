@@ -81,6 +81,21 @@ jobs:
           else
             VERSION="$FORMULA_VERSION"
           fi
+
+          # Sanity: if the formula has a `bottle do` block with a root_url
+          # pointing at a different version, stop. That means update-formula
+          # didn't strip the stale block (regex regression?), and proceeding
+          # would publish bottles into a release whose URL the formula no
+          # longer references after our patch step rewrites the block.
+          # Belt-and-braces against the stale-bottle-block class of bug.
+          STALE_ROOT=$(grep -oE 'kane-cli-[0-9]+\.[0-9]+\.[0-9]+' Formula/kane-cli.rb | grep -v "^kane-cli-${VERSION}$" | head -1 || true)
+          if [ -n "$STALE_ROOT" ]; then
+            echo "❌ Formula has a stale bottle block referencing ${STALE_ROOT} but version is ${VERSION}."
+            echo "   update-formula.yml should strip the bottle block on every version bump."
+            echo "   Refusing to proceed; investigate the stripping logic before re-running."
+            exit 1
+          fi
+
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "Building bottles for kane-cli ${VERSION}"
 
