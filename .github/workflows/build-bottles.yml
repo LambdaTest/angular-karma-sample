@@ -31,6 +31,11 @@ on:
 
 permissions:
   contents: write
+  # Required for the final `gh workflow run "Validate brew install"`
+  # step in the publish job. Without this, gh fails with HTTP 403
+  # "Resource not accessible by integration" — default GITHUB_TOKEN
+  # has only contents permissions in workflow context.
+  actions: write
 
 # Serialize bottle-publish runs so two overlapping invocations can't race
 # each other on the formula commit / release upload. `cancel-in-progress:
