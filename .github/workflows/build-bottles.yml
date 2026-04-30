@@ -7,14 +7,21 @@ name: Build bottles
 # so user toolchain (Xcode/CLT) version becomes irrelevant.
 #
 # Trigger model:
-#   - `workflow_run` after `Update Homebrew Formula` succeeds (the normal
-#     post-release-publish path).
-#   - `workflow_dispatch` for manual backfill of an existing version.
+#   - `workflow_dispatch` only — manual trigger. After a new npm version
+#     publishes and `Update Homebrew Formula` bumps the formula version,
+#     a release manager dispatches this workflow with the new version
+#     number to produce bottles.
+#
+# Why not `workflow_run` after Update Homebrew Formula:
+#   The auto-trigger raced npm publish timing — bottles built within 2
+#   minutes of `npm publish` hit npm's `--min-release-age` threshold and
+#   produced silently-broken installs (kane-cli 0.2.9 incident). Manual
+#   dispatch puts a human in the loop with timing buffer + the chance to
+#   verify the npm tarball is healthy before spending CI cycles bottling
+#   it. The integrity-check step below is a safety net; manual dispatch
+#   is the real prevention.
 
 on:
-  workflow_run:
-    workflows: ["Update Homebrew Formula"]
-    types: [completed]
   workflow_dispatch:
     inputs:
       version:
@@ -27,8 +34,6 @@ permissions:
 
 jobs:
   guard:
-    # workflow_run fires regardless of conclusion — gate on success.
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.read.outputs.version }}
@@ -59,36 +64,28 @@ jobs:
         # platform = adding one entry here, no other workflow changes.
         #
         # Coverage today:
-        #   macos-15      → arm64_sequoia    (Apple Silicon, macOS 15)
         #   macos-14      → arm64_sonoma     (Apple Silicon, macOS 14)
-        #   macos-latest  → whatever GHA's "latest" alias points at
-        #                  (currently arm64_sonoma — duplicates macos-14;
-        #                  kept as forward-compat: when GHA promotes
-        #                  Sequoia/Tahoe, this entry auto-bumps).
+        #                   Covers Sonoma + Sequoia + Tahoe via brew's
+        #                   bottle-fallback (verified end-to-end on Tahoe).
         #   ubuntu-latest → x86_64_linux
         #
-        # Not covered:
-        #   ventura       — Intel x86_64. `macos-13` is GHA's last free Intel
-        #                   pool, deprecating, and queues for 30+ min before
-        #                   allocation. Adding it gates the entire publish
-        #                   on Intel availability, which means waiting hours
-        #                   per release. Intel users still install fine —
-        #                   brew falls back to source build (npm install)
-        #                   when no matching bottle is published. Re-add
-        #                   only if (a) Intel queue improves, or (b) we move
-        #                   to `macos-13-large` (paid) on a split workflow
-        #                   that doesn't gate the main publish.
-        #   arm64_tahoe   — GHA doesn't ship `macos-26` runners yet. brew's
-        #                   bottle fallback should pick arm64_sequoia on
-        #                   Tahoe in practice. Add `macos-26` here when GHA
-        #                   exposes it.
-        #   arm64_linux   — `@testmuai/kane-cli-linux-arm64` does not exist
-        #                   on npm, so there's no platform binary to bundle.
-        #                   Out of scope until kane-cli ships that subpackage.
+        # Not in matrix:
+        #   macos-15 / macos-latest — reproducibly produces gzip-CRC-corrupt
+        #     bottles when bottling kane-cli (homebrew-kane#12 + #13). brew
+        #     extraction bails mid-stream on user machines. macos-latest
+        #     currently aliases macos-15 so it inherits the bug. macos-14
+        #     bottle covers all newer arm64 macOS via fallback. Re-add once
+        #     the Sequoia gzip corruption is root-caused.
+        #   ventura — Intel x86_64. `macos-13` is GHA's last free Intel pool,
+        #     deprecating, queues for hours. Intel users install fine via
+        #     formula's `def install` source-build path (npm install runs
+        #     locally on first install). The async build-bottle-intel.yml
+        #     workflow we tried previously never produced a working bottle
+        #     across 7 dispatches — deleted.
+        #   arm64_linux — `@testmuai/kane-cli-linux-arm64` does not exist
+        #     on npm, so there's no platform binary to bundle.
         os:
-          - macos-15
           - macos-14
-          - macos-latest
           - ubuntu-latest
     runs-on: ${{ matrix.os }}
     steps:
@@ -163,6 +160,32 @@ jobs:
           done
 
           ls -la kane-cli-*.bottle.* || true
+
+      - name: Verify bottle integrity
+        # Gate against silently-corrupt bottles before upload. macos-15
+        # produced gzip-CRC-corrupt bottles for kane-cli 0.2.9 across
+        # multiple builds (homebrew-kane#12) — file existed at the right
+        # size, build "succeeded", upload completed, but `gzip -t` failed
+        # and brew extraction bailed on user machines. This step would
+        # have caught it. Two checks:
+        #   1. `gzip -t` — verifies the gzip stream itself
+        #   2. `tar -tzf` — verifies tar can list contents end-to-end
+        #      (catches truncation where gzip is fine but tar payload is
+        #      cut short)
+        run: |
+          set -e
+          for bottle in kane-cli-*.bottle.tar.gz; do
+            [ -e "$bottle" ] || continue
+            if ! gzip -t "$bottle" 2>&1; then
+              echo "❌ $bottle failed gzip integrity check"
+              exit 1
+            fi
+            if ! tar -tzf "$bottle" >/dev/null 2>&1; then
+              echo "❌ $bottle: gzip OK but tar listing failed"
+              exit 1
+            fi
+            echo "✅ $bottle: gzip + tar listing OK"
+          done
 
       - name: Upload bottle artifact
         uses: actions/upload-artifact@v4
