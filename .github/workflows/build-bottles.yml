@@ -44,11 +44,34 @@ jobs:
 
       - name: Resolve version
         id: read
+        # Build jobs always check out `main` and `brew bottle` produces
+        # filenames + content based on `Formula/kane-cli.rb`'s version
+        # field — NOT based on `inputs.version`. So any drift between
+        # the input and the formula publishes wrongly-named bottles to
+        # `kane-cli-${input}` (the release tag uses the input) while
+        # the bottle filenames + content reflect the formula version.
+        # The publish step's sha collector then can't find them
+        # (filename glob mismatches), failing AFTER the release was
+        # polluted with orphan assets.
+        #
+        # Guard against this: when user passes an explicit version,
+        # require it match the formula version on main. For backfills
+        # of older versions, the formula must first be reverted to
+        # that version on main (or this workflow extended to take a
+        # commit/tag input — out of scope today).
         run: |
+          FORMULA_VERSION=$(grep '^  version' Formula/kane-cli.rb | awk -F'"' '{print $2}')
           if [ -n "${{ inputs.version }}" ]; then
             VERSION="${{ inputs.version }}"
+            if [ "$VERSION" != "$FORMULA_VERSION" ]; then
+              echo "❌ Refusing to bottle: inputs.version=${VERSION} but Formula/kane-cli.rb on main is ${FORMULA_VERSION}."
+              echo "   Build jobs check out main and bottle whatever version the formula points at."
+              echo "   To backfill an older version, first revert the formula on main to ${VERSION}."
+              echo "   To bottle the current formula, leave the version input blank or pass ${FORMULA_VERSION}."
+              exit 1
+            fi
           else
-            VERSION=$(grep '^  version' Formula/kane-cli.rb | awk -F'"' '{print $2}')
+            VERSION="$FORMULA_VERSION"
           fi
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "Building bottles for kane-cli ${VERSION}"
