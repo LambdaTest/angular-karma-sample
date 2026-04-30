@@ -32,6 +32,14 @@ on:
 permissions:
   contents: write
 
+# Serialize bottle-publish runs so two overlapping invocations can't race
+# each other on the formula commit / release upload. `cancel-in-progress:
+# false` keeps any in-flight build going to completion (cancelling a build
+# mid-`brew bottle` leaves partial state) — the next run queues behind it.
+concurrency:
+  group: build-bottles-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   guard:
     runs-on: ubuntu-latest
@@ -229,6 +237,30 @@ jobs:
         with:
           ref: main
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Re-verify formula version hasn't drifted since guard
+        # The guard job ran at the start of the workflow and the build
+        # matrix took ~5–10 min. If `Update Homebrew Formula` (or any
+        # other release path) advanced `main` in that window, this
+        # publish job is about to upload bottles built from the OLD
+        # version into a release tagged for the OLD version, then patch
+        # the formula's bottle block — which now points at a NEWER
+        # version — with stale shas. Result: users on the new version
+        # would download bottles that don't match the formula and brew
+        # fails the checksum.
+        #
+        # Re-read formula version after this checkout. Abort if drift.
+        # Concurrency group above also prevents the inverse race.
+        run: |
+          CURRENT=$(grep '^  version' Formula/kane-cli.rb | awk -F'"' '{print $2}')
+          EXPECTED="${{ needs.guard.outputs.version }}"
+          if [ "$CURRENT" != "$EXPECTED" ]; then
+            echo "❌ Formula version drifted during build: guard saw ${EXPECTED}, main is now ${CURRENT}."
+            echo "   Refusing to publish stale bottles + rewrite the formula's bottle block."
+            echo "   Re-dispatch Build bottles with the correct version after main settles."
+            exit 1
+          fi
+          echo "✅ Formula still at ${EXPECTED} — proceeding to publish"
 
       - name: Download all bottle artifacts
         uses: actions/download-artifact@v4
