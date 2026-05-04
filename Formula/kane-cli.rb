@@ -9,6 +9,12 @@ class KaneCli < Formula
   license "Apache-2.0"
   version "0.2.11"
 
+  bottle do
+    root_url "https://github.com/LambdaTest/homebrew-kane/releases/download/kane-cli-0.2.11"
+    sha256 cellar: :any_skip_relocation, arm64_sonoma: "7290d2ee440725e84f81cd806db907178a68e4ee1731a22390d7a1e7128f604e"
+    sha256 cellar: :any_skip_relocation, x86_64_linux: "63aff7c26dd91017784fe97e02bf8472eff766cf58b107e2af219345d60748b8"
+  end
+
   # Bottle block intentionally removed — the previously published bottles
   # ship without the v16-runner binary (platform optional dep was missing
   # from the brew install). The `.github/workflows/build-bottles.yml`
