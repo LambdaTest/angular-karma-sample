@@ -184,12 +184,16 @@ Whether you have been part of the LambdaTest community for years or are just dis
 
 We chose the name TestMu AI to reflect our shift towards intelligent, autonomous testing. While our identity has changed, our core technology and commitment to the testing community stay the same.
 
-**✨ Specialties**
+**Explore TestMu AI**
 
-- 🤖 AI-Native Test Execution (Formerly LambdaTest)
-- ⚡ Autonomous Test Automation
-- 🌐 Cross-Browser & Mobile Testing
-- 📊 Unified Quality Intelligence
+The same infrastructure LambdaTest customers relied on, now delivered through autonomous AI agents.
+
+- [KaneAI](https://www.testmuai.com/kane-ai/)
+- [Agent-to-Agent Testing](https://www.testmuai.com/agent-to-agent-testing/)
+- [HyperExecute](https://www.testmuai.com/hyperexecute/)
+- [Real Device Cloud](https://www.testmuai.com/real-device-cloud/)
+- [Pricing](https://www.testmuai.com/pricing/)
+- [Documentation](https://www.testmuai.com/support/docs/)
 
 👉 Find [LambdaTest's New Home](https://www.testmuai.com/).
 
