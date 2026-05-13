@@ -184,7 +184,9 @@ Whether you have been part of the LambdaTest community for years or are just dis
 
 We chose the name TestMu AI to reflect our shift towards intelligent, autonomous testing. While our identity has changed, our core technology and commitment to the testing community stay the same.
 
-**Explore TestMu AI**
+👉 Find [LambdaTest's New Home](https://www.testmuai.com/).
+
+**🔭 Explore TestMu AI**
 
 The same infrastructure LambdaTest customers relied on, now delivered through autonomous AI agents.
 
@@ -194,8 +196,6 @@ The same infrastructure LambdaTest customers relied on, now delivered through au
 - [Real Device Cloud](https://www.testmuai.com/real-device-cloud/)
 - [Pricing](https://www.testmuai.com/pricing/)
 - [Documentation](https://www.testmuai.com/support/docs/)
-
-👉 Find [LambdaTest's New Home](https://www.testmuai.com/).
 
 ## We are here to help you :headphones:
 
