@@ -180,13 +180,13 @@ To stay updated with the latest features and product add-ons, visit [Changelog](
 
 Whether you have been part of the LambdaTest community for years or are just discovering TestMu AI, our mission remains the same: to help you ship faster with high-scale test execution, autonomous testing, and deep quality analytics.
 
-**🔄 Our Rebrand Journey**
+### 🔄 Our Rebrand Journey
 
 We chose the name TestMu AI to reflect our shift towards intelligent, autonomous testing. While our identity has changed, our core technology and commitment to the testing community stay the same.
 
 👉 Find [LambdaTest's New Home](https://www.testmuai.com/).
 
-**🔭 Explore TestMu AI**
+### 🔭 Explore TestMu AI
 
 The same infrastructure LambdaTest customers relied on, now delivered through autonomous AI agents.
 
