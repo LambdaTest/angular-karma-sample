@@ -8,7 +8,9 @@
 
 ## Getting Started
 
-[TestMu AI](https://www.testmuai.com/) (Formerly LambdaTest) lets you run Karma Test Runner with Selenium across 3000+ real browsers and operating systems. This sample shows how to configure Angular + Karma to run on the TestMu AI cloud.
+[TestMu AI](https://www.testmuai.com/) (Formerly LambdaTest) is the world's first full-stack AI Agentic Quality Engineering platform that empowers teams to test intelligently, smarter, and ship faster. Built for scale, it offers a full-stack testing cloud with 10K+ real devices and 3,000+ browsers. With AI-native test management, MCP servers, and agent-based automation, TestMu AI supports Selenium, Appium, Playwright, and all major frameworks. 
+
+With TestMu AI (Formerly LambdaTest), you can run Karma Test Runner with Selenium across real browsers and operating systems. This sample shows how to configure Angular + Karma to run on the TestMu AI cloud.
 
 - [Sign up on TestMu AI](https://www.testmuai.com/register/) (Formerly LambdaTest).
 - Follow the documentation on [Run Angular Karma tests with Selenium on TestMu AI](https://www.testmuai.com/support/docs/karma-integration-with-testmu/) (Formerly LambdaTest) for the full setup walkthrough.
