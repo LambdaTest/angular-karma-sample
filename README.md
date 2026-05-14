@@ -104,11 +104,11 @@ Earn free [TestMu AI Certifications](https://www.testmuai.com/certifications/) f
 
 Learn modern testing through tutorials, guides, videos, and weekly updates:
 
-* [TestMu AI Blog](https://www.testmuai.com/blog/) - Tutorials, deep dives, and framework guides for testers and developers.
-* [TestMu AI Learning Hub](https://www.testmuai.com/learning-hub/) - Long-form learning paths on Selenium, Cypress, Playwright, Appium, and AI-native testing.
-* [TestMu AI Newsletter](https://www.testmuai.com/newsletter/) - Weekly roundup of what's new in testing, dev tools, and AI.
-* [TestMu AI on YouTube](https://www.youtube.com/@TestMuAI) - Walkthroughs, product demos, and talks from TestMu Conference.
-
+* [TestMu AI Blog](https://www.testmuai.com/blog/)
+* [TestMu AI Learning Hub](https://www.testmuai.com/learning-hub/)
+* [TestMu AI on YouTube](https://www.youtube.com/@TestMuAI)
+* [TestMu AI Newsletter](https://www.testmuai.com/newsletter/)
+  
 ## LambdaTest is Now TestMu AI
 
 On **January 12, 2026**, [LambdaTest evolved to TestMu AI](https://www.testmuai.com/lambdatest-is-now-testmuai/), the world's first fully autonomous **Agentic AI Quality Engineering Platform**.
